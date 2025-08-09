@@ -63,6 +63,9 @@ function InnerApp(): React.JSX.Element {
         wa?.HapticFeedback?.impactOccurred?.(type);
     }
 
+    function clampTarget(n: number): number { return Math.max(1, Math.min(100, Math.floor(n))); }
+    function clampAmount(n: number): number { return Math.max(1, Math.floor(n)); }
+
     function sendDataToBot(payload: unknown): void {
         const wa = (window as any).Telegram?.WebApp;
         if (!wa) {
@@ -82,15 +85,19 @@ function InnerApp(): React.JSX.Element {
         setSpinning(true);
         const startTs = Date.now();
         // псевдо-анимация для UX до ответа сервера
+        const t = clampTarget(target);
         const pseudo = Math.floor(Math.random() * 100);
         const needle = document.getElementById('needle');
         if (needle) {
+            const isWin = pseudo < t;
+            needle.classList.remove('win', 'lose');
+            needle.classList.add(isWin ? 'win' : 'lose');
             needle.setAttribute('style', `left: ${pseudo}%;`);
         }
         setTimeout(() => setSpinning(false), 1200);
         // локальная запись в историю (UI-уровень)
-        setRecent((prev) => [{ ts: startTs, roll: pseudo, target, amount, win: pseudo < target, payout: 0 }, ...prev].slice(0, 20));
-        sendDataToBot({ action: 'bet_roll', target, amount });
+        setRecent((prev) => [{ ts: startTs, roll: pseudo, target: t, amount, win: pseudo < t, payout: 0 }, ...prev].slice(0, 20));
+        sendDataToBot({ action: 'bet_roll', target: t, amount });
     }
 
     async function onAuto(count: number): Promise<void> {
@@ -115,25 +122,25 @@ function InnerApp(): React.JSX.Element {
                 <div className="layout">
                     <section className="card">
                         <div className="scale" id="scale">
-                            <div className="target-line" style={{ left: `${target}%` }} />
+                            <div className="target-line" style={{ left: `${Math.max(1, Math.min(100, target))}%` }} />
                             <div className="needle" id="needle" style={{ left: '0%' }} />
                         </div>
                         <div className="scale-labels"><span>0</span><span>50</span><span>100</span></div>
                         <div className="grid two-col" style={{ marginTop: 10 }}>
                             <div>
                                 <div className="label">Target (1..100)</div>
-                                <input className="input" type="number" min={1} max={100} value={target} onChange={(e) => setTarget(Number(e.target.value))} />
+                                <input className="input" type="number" min={1} max={100} value={target} onChange={(e) => setTarget(Math.max(1, Math.min(100, Number(e.target.value) || 1)))} />
                             </div>
                             <div>
                                 <div className="label">Amount (POINTS)</div>
-                                <input className="input" type="number" min={1} value={amount} onChange={(e) => setAmount(Number(e.target.value))} />
+                                <input className="input" type="number" min={1} value={amount} onChange={(e) => setAmount(Math.max(1, Number(e.target.value) || 1))} />
                             </div>
                         </div>
                         <div style={{ display: 'flex', gap: 12, marginTop: 12, flexWrap: 'wrap' }}>
                             <button className="button button-primary" onClick={onSpin}>Сделать ставку и крутить</button>
                             <button className="button button-secondary" onClick={() => setTarget(50)}>50/50</button>
-                            <button className="button button-secondary" onClick={() => setTarget((t) => Math.max(1, t - 5))}>-5</button>
-                            <button className="button button-secondary" onClick={() => setTarget((t) => Math.min(100, t + 5))}>+5</button>
+                            <button className="button button-secondary" onClick={() => setTarget((t) => Math.max(1, Math.min(100, t - 5)))}>-5</button>
+                            <button className="button button-secondary" onClick={() => setTarget((t) => Math.max(1, Math.min(100, t + 5)))}>+5</button>
                             <button className="button button-secondary" onClick={() => setAmount((a) => Math.max(1, Math.floor(a / 2)))}>1/2</button>
                             <button className="button button-secondary" onClick={() => setAmount((a) => a * 2)}>x2</button>
                             <button className="button button-secondary" onClick={() => onAuto(10)}>Auto x10</button>

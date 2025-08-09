@@ -176,6 +176,9 @@ body {
     border-bottom: 14px solid var(--accent);
 }
 
+.needle.win::after { border-bottom-color: #00ffa3; }
+.needle.lose::after { border-bottom-color: #ff4d6d; }
+
 .scale-labels {
     display: flex;
     justify-content: space-between;
