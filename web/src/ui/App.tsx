@@ -83,10 +83,9 @@ function InnerApp(): React.JSX.Element {
         const startTs = Date.now();
         // псевдо-анимация для UX до ответа сервера
         const pseudo = Math.floor(Math.random() * 100);
-        const wheel = document.getElementById('wheel');
-        if (wheel) {
-            const finalAngle = 360 + (pseudo / 100) * 360; // минимум 1 оборот + приземление
-            wheel.style.transform = `rotate(${finalAngle}deg)`;
+        const needle = document.getElementById('needle');
+        if (needle) {
+            needle.setAttribute('style', `left: ${pseudo}%;`);
         }
         setTimeout(() => setSpinning(false), 1200);
         // локальная запись в историю (UI-уровень)
@@ -115,8 +114,11 @@ function InnerApp(): React.JSX.Element {
 
                 <div className="layout">
                     <section className="card">
-                        <div className={`wheel ${spinning ? 'spinning' : ''}`} id="wheel"></div>
-                        <div className="pointer" />
+                        <div className="scale" id="scale">
+                            <div className="target-line" style={{ left: `${target}%` }} />
+                            <div className="needle" id="needle" style={{ left: '0%' }} />
+                        </div>
+                        <div className="scale-labels"><span>0</span><span>50</span><span>100</span></div>
                         <div className="grid two-col" style={{ marginTop: 10 }}>
                             <div>
                                 <div className="label">Target (1..100)</div>
