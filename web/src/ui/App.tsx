@@ -34,9 +34,37 @@ function InnerApp(): React.JSX.Element {
                 setTgAvailable(true);
                 const u = wa.initDataUnsafe?.user;
                 setUsername(u?.username || u?.first_name || 'Игрок');
+                // Haptics light welcome
+                wa.HapticFeedback?.impactOccurred?.('soft');
             } catch { }
         }
+        // load persisted settings
+        try {
+            const s = localStorage.getItem('tondice.settings');
+            if (s) {
+                const j = JSON.parse(s);
+                if (typeof j.target === 'number') setTarget(j.target);
+                if (typeof j.amount === 'number') setAmount(j.amount);
+                if (typeof j.clientSeed === 'string') setClientSeed(j.clientSeed);
+            }
+            const r = localStorage.getItem('tondice.recent');
+            if (r) setRecent(JSON.parse(r));
+        } catch { }
     }, []);
+
+    function persist(): void {
+        try {
+            localStorage.setItem('tondice.settings', JSON.stringify({ target, amount, clientSeed }));
+            localStorage.setItem('tondice.recent', JSON.stringify(recent));
+        } catch { }
+    }
+
+    useEffect(() => { persist(); }, [target, amount, clientSeed, recent]);
+
+    function haptic(type: 'light' | 'medium' | 'heavy' | 'soft' | 'rigid' = 'light') {
+        const wa = (window as any).Telegram?.WebApp;
+        wa?.HapticFeedback?.impactOccurred?.(type);
+    }
 
     function sendDataToBot(payload: unknown): void {
         const wa = (window as any).Telegram?.WebApp;
@@ -47,6 +75,7 @@ function InnerApp(): React.JSX.Element {
         try {
             wa.sendData(JSON.stringify(payload));
             setStatus('Отправлено боту. Проверьте чат.');
+            haptic('medium');
         } catch (e) {
             setStatus('Ошибка отправки в бота');
         }
@@ -58,6 +87,15 @@ function InnerApp(): React.JSX.Element {
         sendDataToBot({ action: 'bet_roll', target, amount });
         // локальная запись в историю (UI-уровень). Сервер всё равно хранит свою историю
         setRecent((prev) => [{ ts: Date.now(), roll: -1, target, amount, win: false, payout: 0 }, ...prev].slice(0, 20));
+    }
+
+    async function onAuto(count: number): Promise<void> {
+        for (let i = 0; i < count; i += 1) {
+            onSpin();
+            // небольшая пауза между спинами
+            // eslint-disable-next-line no-await-in-loop
+            await new Promise((r) => setTimeout(r, 350));
+        }
     }
 
     return (
@@ -84,9 +122,14 @@ function InnerApp(): React.JSX.Element {
                                 <input className="input" type="number" min={1} value={amount} onChange={(e) => setAmount(Number(e.target.value))} />
                             </div>
                         </div>
-                        <div style={{ display: 'flex', gap: 12, marginTop: 12 }}>
+                        <div style={{ display: 'flex', gap: 12, marginTop: 12, flexWrap: 'wrap' }}>
                             <button className="button button-primary" onClick={onSpin}>Сделать ставку и крутить</button>
                             <button className="button button-secondary" onClick={() => setTarget(50)}>50/50</button>
+                            <button className="button button-secondary" onClick={() => setTarget((t) => Math.max(1, t - 5))}>-5</button>
+                            <button className="button button-secondary" onClick={() => setTarget((t) => Math.min(100, t + 5))}>+5</button>
+                            <button className="button button-secondary" onClick={() => setAmount((a) => Math.max(1, Math.floor(a / 2)))}>1/2</button>
+                            <button className="button button-secondary" onClick={() => setAmount((a) => a * 2)}>x2</button>
+                            <button className="button button-secondary" onClick={() => onAuto(10)}>Auto x10</button>
                         </div>
                     </section>
 
@@ -136,9 +179,11 @@ export function App(): React.JSX.Element {
     // Manifest URL можно хранить рядом: public/tonconnect-manifest.json, но для MVP используем инлайн URL
     const manifestUrl = 'https://dice-vert-delta.vercel.app/tonconnect-manifest.json';
     return (
-        <TonConnectUIProvider manifestUrl={manifestUrl} walletsListConfiguration={{ includeWallets: [
-            { appName: 'tonkeeper', name: 'Tonkeeper', imageUrl: 'https://raw.githubusercontent.com/ton-connect/sdk/main/assets/tonconnect-logo.png', aboutUrl: 'https://tonkeeper.com' }
-        ]}}>
+        <TonConnectUIProvider manifestUrl={manifestUrl} walletsListConfiguration={{
+            includeWallets: [
+                { appName: 'tonkeeper', name: 'Tonkeeper', imageUrl: 'https://raw.githubusercontent.com/ton-connect/sdk/main/assets/tonconnect-logo.png', aboutUrl: 'https://tonkeeper.com' }
+            ]
+        }}>
             <InnerApp />
         </TonConnectUIProvider>
     );
