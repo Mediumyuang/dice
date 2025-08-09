@@ -1,5 +1,7 @@
 {
-    "cleanUrls": true,
-    "ignoreCommand": "echo Using Vite defaults",
-    "outputDirectory": "dist"
+  "cleanUrls": true,
+  "outputDirectory": "dist",
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
 }
