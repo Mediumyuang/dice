@@ -144,6 +144,12 @@ body {
     animation: spin 1.2s ease-in-out;
 }
 
+/* allow programmatic rotation for landing angle */
+.wheel {
+    will-change: transform;
+    transition: transform 1.2s cubic-bezier(.2,.8,.2,1);
+}
+
 @keyframes spin {
     0% {
         transform: rotate(0);

@@ -80,10 +80,18 @@ function InnerApp(): React.JSX.Element {
 
     function onSpin(): void {
         setSpinning(true);
+        const startTs = Date.now();
+        // псевдо-анимация для UX до ответа сервера
+        const pseudo = Math.floor(Math.random() * 100);
+        const wheel = document.getElementById('wheel');
+        if (wheel) {
+            const finalAngle = 360 + (pseudo / 100) * 360; // минимум 1 оборот + приземление
+            wheel.style.transform = `rotate(${finalAngle}deg)`;
+        }
         setTimeout(() => setSpinning(false), 1200);
+        // локальная запись в историю (UI-уровень)
+        setRecent((prev) => [{ ts: startTs, roll: pseudo, target, amount, win: pseudo < target, payout: 0 }, ...prev].slice(0, 20));
         sendDataToBot({ action: 'bet_roll', target, amount });
-        // локальная запись в историю (UI-уровень). Сервер всё равно хранит свою историю
-        setRecent((prev) => [{ ts: Date.now(), roll: -1, target, amount, win: false, payout: 0 }, ...prev].slice(0, 20));
     }
 
     async function onAuto(count: number): Promise<void> {
@@ -107,7 +115,7 @@ function InnerApp(): React.JSX.Element {
 
                 <div className="layout">
                     <section className="card">
-                        <div className={`wheel ${spinning ? 'spinning' : ''}`}></div>
+                        <div className={`wheel ${spinning ? 'spinning' : ''}`} id="wheel"></div>
                         <div className="pointer" />
                         <div className="grid two-col" style={{ marginTop: 10 }}>
                             <div>
