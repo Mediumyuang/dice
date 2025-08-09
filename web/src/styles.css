@@ -161,8 +161,8 @@ body {
 
 .needle {
     position: absolute;
-    top: -16px;
-    transform: translateX(-50%);
+    bottom: -16px;
+    transform: translateX(-50%) rotate(180deg);
     transition: left 0.9s cubic-bezier(.2,.8,.2,1);
     filter: drop-shadow(0 0 6px rgba(33,212,253,0.6));
 }
@@ -173,11 +173,11 @@ body {
     width: 0; height: 0;
     border-left: 9px solid transparent;
     border-right: 9px solid transparent;
-    border-bottom: 14px solid var(--accent);
+    border-top: 14px solid var(--accent);
 }
 
-.needle.win::after { border-bottom-color: #00ffa3; }
-.needle.lose::after { border-bottom-color: #ff4d6d; }
+.needle.win::after { border-top-color: #00ffa3; }
+.needle.lose::after { border-top-color: #ff4d6d; }
 
 .scale-labels {
     display: flex;
