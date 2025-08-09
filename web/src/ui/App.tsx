@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { TonConnectUIProvider, TonConnectButton, useTonConnectUI } from '@tonconnect/ui-react';
 
 type RollResult = {
     serverSeedHash: string;
@@ -10,7 +11,7 @@ type RollResult = {
     balance: number;
 };
 
-export function App(): React.JSX.Element {
+function InnerApp(): React.JSX.Element {
     const [tgAvailable, setTgAvailable] = useState<boolean>(false);
     const [username, setUsername] = useState<string>('');
     const [target, setTarget] = useState<number>(50);
@@ -18,6 +19,11 @@ export function App(): React.JSX.Element {
     const [clientSeed, setClientSeed] = useState<string>('');
     const [status, setStatus] = useState<string>('');
     const [spinning, setSpinning] = useState<boolean>(false);
+    const [recent, setRecent] = useState<{ ts: number; roll: number; target: number; amount: number; win: boolean; payout: number }[]>([]);
+    const [tonUI] = useTonConnectUI();
+
+    const connected = tonUI?.connected ?? false;
+    const walletAddress = useMemo(() => tonUI?.wallet?.account?.address ?? '', [tonUI?.wallet?.account?.address]);
 
     useEffect(() => {
         const wa = (window as any).Telegram?.WebApp;
@@ -50,12 +56,17 @@ export function App(): React.JSX.Element {
         setSpinning(true);
         setTimeout(() => setSpinning(false), 1200);
         sendDataToBot({ action: 'bet_roll', target, amount });
+        // локальная запись в историю (UI-уровень). Сервер всё равно хранит свою историю
+        setRecent((prev) => [{ ts: Date.now(), roll: -1, target, amount, win: false, payout: 0 }, ...prev].slice(0, 20));
     }
 
     return (
         <div className="app">
             <div className="container">
-                <div className="badge">TON Dice · Mini App</div>
+                <div className="badge" style={{ justifyContent: 'space-between', width: '100%' }}>
+                    <span>TON Dice · Mini App</span>
+                    <TonConnectButton />
+                </div>
                 <div className="title">Привет, {username}!</div>
                 <div className="subtitle">{tgAvailable ? 'WebApp активен' : 'Открой Mini App через Telegram для полного функционала'}</div>
 
@@ -91,13 +102,45 @@ export function App(): React.JSX.Element {
                                 <button className="button button-primary" onClick={() => sendDataToBot({ action: 'set_client_seed', clientSeed })}>Сохранить clientSeed</button>
                             </div>
                             <div className={`status ${tgAvailable ? '' : 'warn'}`}>{status || (!tgAvailable ? 'Telegram WebApp API недоступен. Откройте через Telegram' : '')}</div>
+                            <div className="section-title" style={{ marginTop: 10 }}>Кошелёк</div>
+                            <div className="status">{connected ? `Подключен: ${walletAddress.slice(0, 6)}…${walletAddress.slice(-4)}` : 'Кошелёк не подключен'}</div>
                         </div>
                     </section>
                 </div>
+
+                <section className="card" style={{ marginTop: 16 }}>
+                    <div className="section-title">История (последние 20)</div>
+                    <div className="grid">
+                        {recent.length === 0 ? (
+                            <div className="status">Пока пусто. Сделайте ставку.</div>
+                        ) : (
+                            recent.map((r, i) => (
+                                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 13, borderBottom: '1px solid rgba(255,255,255,0.08)', padding: '6px 0' }}>
+                                    <span style={{ color: '#a9b2c1' }}>{new Date(r.ts).toLocaleTimeString()}</span>
+                                    <span>ROLL {r.roll >= 0 ? r.roll : '…'} {'<'} {r.target}</span>
+                                    <span>{r.win ? 'WIN' : 'LOSE'}</span>
+                                    <span>{r.win ? `+${r.payout}` : `-${r.amount}`} pts</span>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </section>
             </div>
 
             <div className="footer">Без картинок · ультра современный неон/стекло дизайн</div>
         </div>
+    );
+}
+
+export function App(): React.JSX.Element {
+    // Manifest URL можно хранить рядом: public/tonconnect-manifest.json, но для MVP используем инлайн URL
+    const manifestUrl = 'https://dice-vert-delta.vercel.app/tonconnect-manifest.json';
+    return (
+        <TonConnectUIProvider manifestUrl={manifestUrl} walletsListConfiguration={{ includeWallets: [
+            { appName: 'tonkeeper', name: 'Tonkeeper', imageUrl: 'https://raw.githubusercontent.com/ton-connect/sdk/main/assets/tonconnect-logo.png', aboutUrl: 'https://tonkeeper.com' }
+        ]}}>
+            <InnerApp />
+        </TonConnectUIProvider>
     );
 }
 
