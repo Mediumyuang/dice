@@ -1,0 +1,5 @@
+{
+    "cleanUrls": true,
+    "ignoreCommand": "echo Using Vite defaults",
+    "outputDirectory": "dist"
+}

@@ -1,0 +1,29 @@
+{
+    "name": "ton-dice",
+    "version": "0.1.0",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "dev": "tsx watch src/bot/index.ts",
+        "build": "tsc -p .",
+        "start": "node dist/bot/index.js",
+        "test": "vitest run",
+        "web:install": "npm --prefix web install",
+        "web:dev": "npm --prefix web run dev",
+        "web:build": "npm --prefix web run build",
+        "web:tunnel": "node scripts/start-web-tunnel.mjs"
+    },
+    "dependencies": {
+        "better-sqlite3": "^9.4.0",
+        "dotenv": "^16.4.5",
+        "telegraf": "^4.16.3"
+    },
+    "devDependencies": {
+        "@types/better-sqlite3": "^7.6.13",
+        "@types/node": "^20.11.30",
+        "localtunnel": "^2.0.2",
+        "tsx": "^4.7.0",
+        "typescript": "^5.5.3",
+        "vitest": "^1.6.0"
+    }
+}
