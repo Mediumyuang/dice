@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { TonConnectUIProvider, TonConnectButton, useTonConnectUI } from '@tonconnect/ui-react';
 
 type RollResult = {
     serverSeedHash: string;
@@ -20,10 +19,8 @@ function InnerApp(): React.JSX.Element {
     const [status, setStatus] = useState<string>('');
     const [spinning, setSpinning] = useState<boolean>(false);
     const [recent, setRecent] = useState<{ ts: number; roll: number; target: number; amount: number; win: boolean; payout: number }[]>([]);
-    const [tonUI] = useTonConnectUI();
-
-    const connected = tonUI?.connected ?? false;
-    const walletAddress = useMemo(() => tonUI?.wallet?.account?.address ?? '', [tonUI?.wallet?.account?.address]);
+    const connected = false;
+    const walletAddress = '';
 
     useEffect(() => {
         const wa = (window as any).Telegram?.WebApp;
@@ -103,7 +100,7 @@ function InnerApp(): React.JSX.Element {
             <div className="container">
                 <div className="badge" style={{ justifyContent: 'space-between', width: '100%' }}>
                     <span>TON Dice · Mini App</span>
-                    <TonConnectButton />
+                    <span className="status">Кошелёк: скоро</span>
                 </div>
                 <div className="title">Привет, {username}!</div>
                 <div className="subtitle">{tgAvailable ? 'WebApp активен' : 'Открой Mini App через Telegram для полного функционала'}</div>
@@ -146,7 +143,7 @@ function InnerApp(): React.JSX.Element {
                             </div>
                             <div className={`status ${tgAvailable ? '' : 'warn'}`}>{status || (!tgAvailable ? 'Telegram WebApp API недоступен. Откройте через Telegram' : '')}</div>
                             <div className="section-title" style={{ marginTop: 10 }}>Кошелёк</div>
-                            <div className="status">{connected ? `Подключен: ${walletAddress.slice(0, 6)}…${walletAddress.slice(-4)}` : 'Кошелёк не подключен'}</div>
+                            <div className="status">{connected ? `Подключен: ${walletAddress.slice(0, 6)}…${walletAddress.slice(-4)}` : 'Скоро добавим подключение TON-кошелька'}</div>
                         </div>
                     </section>
                 </div>
@@ -176,17 +173,7 @@ function InnerApp(): React.JSX.Element {
 }
 
 export function App(): React.JSX.Element {
-    // Manifest URL можно хранить рядом: public/tonconnect-manifest.json, но для MVP используем инлайн URL
-    const manifestUrl = 'https://dice-vert-delta.vercel.app/tonconnect-manifest.json';
-    return (
-        <TonConnectUIProvider manifestUrl={manifestUrl} walletsListConfiguration={{
-            includeWallets: [
-                { appName: 'tonkeeper', name: 'Tonkeeper', imageUrl: 'https://raw.githubusercontent.com/ton-connect/sdk/main/assets/tonconnect-logo.png', aboutUrl: 'https://tonkeeper.com' }
-            ]
-        }}>
-            <InnerApp />
-        </TonConnectUIProvider>
-    );
+    return <InnerApp />;
 }
 
 
