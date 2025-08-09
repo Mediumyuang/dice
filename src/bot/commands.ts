@@ -1,5 +1,5 @@
 import { Telegraf, Context } from 'telegraf';
-import { HOUSE_EDGE_BPS, MAX_BET, MIN_BET, SERVER_SEED_SECRET, START_BALANCE, WEBAPP_URL } from '../config.js';
+import { HOUSE_EDGE_BPS, EXTRA_EDGE_MAX_BPS, MAX_BET, MIN_BET, SERVER_SEED_SECRET, START_BALANCE, WEBAPP_URL } from '../config.js';
 import { computeRoll, generateServerSeed, serverSeedHash } from '../core/provablyFair.js';
 import { clearPendingBet, getPendingBet, getStats, getUser, incrementNonce, recordBet, setPendingBet, updateBalance, updateClientSeed, updateServerSeed, upsertUser } from '../db/index.js';
 
@@ -16,12 +16,21 @@ function formatHelp(): string {
     ].join('\n');
 }
 
+function dynamicEdgeBps(target: number): number {
+    // Усиливаем edge к краям диапазона. Центр (50) — базовый edge.
+    // Нормализация отклонения: 0..1 на отрезке 1..99
+    const clamped = Math.max(1, Math.min(99, target));
+    const deviation = Math.abs(clamped - 50) / 49; // ~0..1
+    const extra = Math.round(deviation * EXTRA_EDGE_MAX_BPS);
+    return HOUSE_EDGE_BPS + extra;
+}
+
 function calcPayoutGross(amount: number, target: number): number {
-    // Payout multiplier = (100% - edge) / target%
-    // integer math in basis points to avoid FP drift
-    const numerator = 10000 - HOUSE_EDGE_BPS; // in bps
+    // Мультипликатор: (100% - dynamic_edge) / target%
+    const edgeBps = dynamicEdgeBps(target);
+    const numerator = 10000 - edgeBps; // в bps
     const payout = Math.floor((amount * numerator) / (target * 100));
-    return payout;
+    return Math.max(0, payout);
 }
 
 export function registerCommands(bot: Telegraf<Context>): void {
@@ -78,7 +87,9 @@ export function registerCommands(bot: Telegraf<Context>): void {
         if (!Number.isFinite(amount) || amount < MIN_BET || amount > MAX_BET) { ctx.reply(`Ставка должна быть ${MIN_BET}..${MAX_BET}`); return; }
         if (user.balance < amount) { ctx.reply('Недостаточно средств'); return; }
         setPendingBet(user.telegramId, target, amount);
-        ctx.reply(`Ставка установлена: ROLL UNDER ${target}, сумма ${amount} POINTS. Нажми /roll.`);
+        const edgeBps = dynamicEdgeBps(target);
+        const previewPayout = calcPayoutGross(amount, target);
+        ctx.reply(`Ставка: ROLL UNDER ${target}, сумма ${amount} POINTS. Теоретич. выплата: ${previewPayout} (edge ${(edgeBps/100).toFixed(2)}%). Нажми /roll.`);
     });
 
     bot.command('roll', (ctx) => {

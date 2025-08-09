@@ -21,5 +21,8 @@ export const MIN_BET = intFromEnv('MIN_BET', 1);
 export const MAX_BET = intFromEnv('MAX_BET', 100);
 // House edge in basis points (100 = 1.00%)
 export const HOUSE_EDGE_BPS = intFromEnv('HOUSE_EDGE_BPS', 100);
+// Дополнительная динамическая надбавка к edge в базисных пунктах (0.01%),
+// увеличивается по мере удаления target от середины диапазона
+export const EXTRA_EDGE_MAX_BPS = intFromEnv('EXTRA_EDGE_MAX_BPS', 60);
 
 
