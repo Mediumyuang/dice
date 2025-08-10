@@ -53,7 +53,9 @@ function InnerApp(): React.JSX.Element {
                 setStatus('Ошибка инициализации Telegram WebApp');
             }
         } else {
-            setStatus('Откройте приложение через Telegram для полного функционала');
+            console.log('Telegram WebApp not available - running in browser mode');
+            setStatus('Режим браузера - используйте демо режим для тестирования');
+            setTgAvailable(false);
         }
 
         // Check API server availability
@@ -96,7 +98,7 @@ function InnerApp(): React.JSX.Element {
     async function connectTelegramWallet(): Promise<void> {
         const wa = (window as any).Telegram?.WebApp;
         if (!wa) {
-            setStatus('Telegram WebApp недоступен');
+            setStatus('Telegram WebApp недоступен - используйте демо режим');
             return;
         }
 
@@ -144,7 +146,7 @@ function InnerApp(): React.JSX.Element {
             }
         } catch (error) {
             console.error('Telegram Wallet connection error:', error);
-            setStatus('Ошибка подключения к Telegram кошельку');
+            setStatus('Ошибка подключения к Telegram кошельку - используйте демо режим');
         }
     }
 
@@ -267,13 +269,27 @@ function InnerApp(): React.JSX.Element {
                 {!connected ? (
                     <section className="card">
                         <div className="section-title">Подключение кошелька</div>
-                        <button
-                            className="button button-primary"
-                            onClick={connectTelegramWallet}
-                            style={{ width: '100%', marginTop: 12 }}
-                        >
-                            Подключить Telegram кошелёк
-                        </button>
+                        {tgAvailable ? (
+                            <button
+                                className="button button-primary"
+                                onClick={connectTelegramWallet}
+                                style={{ width: '100%', marginTop: 12 }}
+                            >
+                                Подключить Telegram кошелёк
+                            </button>
+                        ) : (
+                            <div style={{
+                                padding: '12px',
+                                background: 'rgba(255,255,255,0.05)',
+                                borderRadius: '8px',
+                                marginTop: 12,
+                                textAlign: 'center',
+                                fontSize: '14px',
+                                color: '#a9b2c1'
+                            }}>
+                                Откройте приложение через Telegram для подключения кошелька
+                            </div>
+                        )}
                         <button
                             className="button button-secondary"
                             onClick={() => {
@@ -289,7 +305,7 @@ function InnerApp(): React.JSX.Element {
                         <div style={{ marginTop: 12, fontSize: 12, color: '#a9b2c1', textAlign: 'center' }}>
                             {tgAvailable ?
                                 'Используйте встроенный Telegram кошелёк для игры' :
-                                'Откройте приложение через Telegram для доступа к кошельку'
+                                'Для полного функционала откройте приложение через Telegram'
                             }
                         </div>
                     </section>
