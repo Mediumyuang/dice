@@ -31,37 +31,48 @@ function InnerApp(): React.JSX.Element {
         console.log('Current time:', new Date().toISOString());
         console.log('Window location:', window.location.href);
         console.log('User agent:', navigator.userAgent);
+        console.log('Window object keys:', Object.keys(window));
 
-        const wa = (window as any).Telegram?.WebApp;
-        console.log('Telegram WebApp check:', {
-            hasTelegram: !!(window as any).Telegram,
-            hasWebApp: !!wa,
+        // Check for Telegram WebApp in different ways
+        const telegram = (window as any).Telegram;
+        const webApp = telegram?.WebApp;
+        const tgWebApp = (window as any).tgWebApp;
+
+        console.log('Telegram detection:', {
+            hasTelegram: !!telegram,
+            hasWebApp: !!webApp,
+            hasTgWebApp: !!tgWebApp,
+            telegramKeys: telegram ? Object.keys(telegram) : [],
+            webAppKeys: webApp ? Object.keys(webApp) : [],
             userAgent: navigator.userAgent,
-            url: window.location.href
+            url: window.location.href,
+            referrer: document.referrer
         });
 
-        if (wa) {
+        if (webApp) {
             try {
-                wa.ready();
-                wa.expand();
+                webApp.ready();
+                webApp.expand();
                 setTgAvailable(true);
-                const u = wa.initDataUnsafe?.user;
+                const u = webApp.initDataUnsafe?.user;
                 setUsername(u?.username || u?.first_name || 'Игрок');
-                wa.HapticFeedback?.impactOccurred?.('soft');
+                webApp.HapticFeedback?.impactOccurred?.('soft');
 
                 console.log('Telegram WebApp initialized:', {
-                    version: wa.version,
-                    platform: wa.platform,
+                    version: webApp.version,
+                    platform: webApp.platform,
                     user: u,
-                    isVersionAtLeast69: wa.isVersionAtLeast('6.9')
+                    isVersionAtLeast69: webApp.isVersionAtLeast('6.9'),
+                    initData: webApp.initData,
+                    initDataUnsafe: webApp.initDataUnsafe
                 });
 
                 // Check if Telegram Wallet is available
-                if (wa.isVersionAtLeast('6.9')) {
+                if (webApp.isVersionAtLeast('6.9')) {
                     console.log('Telegram Wallet is available');
-                    wa.MainButton?.show();
-                    wa.MainButton?.setText('Подключить кошелёк');
-                    wa.MainButton?.onClick(() => connectTelegramWallet());
+                    webApp.MainButton?.show();
+                    webApp.MainButton?.setText('Подключить кошелёк');
+                    webApp.MainButton?.onClick(() => connectTelegramWallet());
                 } else {
                     console.log('Telegram Wallet not available, using demo mode');
                     setStatus('Telegram Wallet недоступен. Используйте демо режим.');
@@ -74,12 +85,14 @@ function InnerApp(): React.JSX.Element {
             // Check if we're in Telegram by user agent or URL
             const isInTelegram = navigator.userAgent.includes('Telegram') ||
                 window.location.href.includes('tgwebapp') ||
-                window.location.href.includes('telegram');
+                window.location.href.includes('telegram') ||
+                document.referrer.includes('telegram');
 
             console.log('Telegram WebApp not available:', {
                 isInTelegram,
                 userAgent: navigator.userAgent,
-                url: window.location.href
+                url: window.location.href,
+                referrer: document.referrer
             });
 
             if (isInTelegram) {
@@ -387,6 +400,17 @@ function InnerApp(): React.JSX.Element {
                             style={{ width: '100%', marginTop: 8, fontSize: '12px' }}
                         >
                             🔄 Обновить страницу
+                        </button>
+                        <button
+                            className="button button-secondary"
+                            onClick={() => {
+                                console.log('Force Telegram mode clicked');
+                                setTgAvailable(true);
+                                setStatus('Принудительно включен Telegram режим');
+                            }}
+                            style={{ width: '100%', marginTop: 8, fontSize: '12px' }}
+                        >
+                            🔧 Принудительно Telegram режим
                         </button>
                         <div style={{ marginTop: 12, fontSize: 12, color: '#a9b2c1', textAlign: 'center' }}>
                             {tgAvailable ?
