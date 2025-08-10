@@ -1,19 +1,24 @@
-import { getTG, isTelegramWebApp } from './isTelegram';
+export function getTG() { 
+    return (window as any)?.Telegram?.WebApp 
+}
 
-export function initTelegram() {
-    if (!isTelegramWebApp()) return null;
+export function isTG() { 
+    const tg = getTG(); 
+    return !!tg && typeof tg.initData === 'string' && tg.initData.length > 0; 
+}
 
-    const tg = getTG();
-    try {
-        tg.ready();
-        tg.expand();
-
-        const data = (window as any).Telegram.WebApp.initDataUnsafe || {};
-        console.log('[TG]', { version: tg.version, platform: tg.platform, data });
-
-        return { tg, data };
-    } catch (e) {
-        console.error('[TG] init error', e);
-        return null;
+export function initTG() {
+    if (!isTG()) return null;
+    
+    const tg = getTG(); 
+    try { 
+        tg.ready(); 
+        tg.expand(); 
+        return { 
+            tg, 
+            user: (tg as any).initDataUnsafe?.user || null 
+        }; 
+    } catch { 
+        return null; 
     }
 }

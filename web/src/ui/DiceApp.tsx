@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { TonConnectUI } from '@tonconnect/ui';
-import { isTelegramWebApp, initTelegram } from '../lib/telegram';
+import { initTG } from '../lib/telegram';
+import { api } from '../lib/api';
 
 interface GameResult {
     roll: number;
@@ -14,11 +15,9 @@ interface Balance {
     tg_id: number;
 }
 
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:3000';
-
 export function DiceApp(): React.JSX.Element {
-    const [inTG, setInTG] = useState<boolean>(false);
     const [tgCtx, setTgCtx] = useState<any>(null);
+    const [mode, setMode] = useState<'telegram' | 'demo'>('demo');
     const [tonConnect, setTonConnect] = useState<TonConnectUI | null>(null);
     const [balance, setBalance] = useState<number>(0);
     const [target, setTarget] = useState<number>(50);
@@ -29,70 +28,65 @@ export function DiceApp(): React.JSX.Element {
     const [isConnected, setIsConnected] = useState<boolean>(false);
 
     useEffect(() => {
-        // Проверяем Telegram WebApp
-        const telegramAvailable = isTelegramWebApp();
-        setInTG(telegramAvailable);
-
-        if (telegramAvailable) {
-            const ctx = initTelegram();
-            setTgCtx(ctx);
-
-            if (ctx) {
-                // Инициализируем TonConnect только в Telegram
-                const tc = new TonConnectUI({
-                    manifestUrl: `${location.origin}/tonconnect-manifest.json`
-                });
-                setTonConnect(tc);
-
-                // Подписываемся на изменения подключения
-                tc.onStatusChange((wallet) => {
-                    setIsConnected(!!wallet);
-                    if (wallet) {
-                        loadBalance();
-                    }
-                });
-
-                setStatus('Telegram WebApp готов к работе');
-            } else {
-                setStatus('Ошибка инициализации Telegram WebApp');
-            }
+        // Инициализируем Telegram контекст
+        const ctx = initTG();
+        setTgCtx(ctx);
+        
+        if (ctx) {
+            setMode('telegram');
+            
+            // Инициализируем TonConnect только в Telegram режиме
+            const tc = new TonConnectUI({
+                manifestUrl: `${location.origin}/tonconnect-manifest.json`
+            });
+            setTonConnect(tc);
+            
+            // Подписываемся на изменения подключения
+            tc.onStatusChange((wallet) => {
+                setIsConnected(!!wallet);
+                if (wallet) {
+                    loadBalance();
+                }
+            });
+            
+            setStatus('Telegram WebApp готов к работе');
         } else {
+            setMode('demo');
             setStatus('Приложение должно быть запущено в Telegram');
         }
     }, []);
 
     const loadBalance = async () => {
-        if (!tgCtx?.data?.user?.id) return;
-
+        if (mode !== 'telegram' || !tgCtx?.user?.id) return;
+        
         try {
-            const response = await fetch(`${API_BASE}/api/balance?tg_id=${tgCtx.data.user.id}`, {
+            const data: Balance = await api(`/api/balance?tg_id=${tgCtx.user.id}`, {
                 headers: {
-                    'X-TG-ID': tgCtx.data.user.id.toString()
+                    'X-TG-ID': tgCtx.user.id.toString()
                 }
             });
-
-            if (response.ok) {
-                const data: Balance = await response.json();
-                setBalance(data.balance);
-            }
+            setBalance(data.balance);
         } catch (error) {
             console.error('Failed to load balance:', error);
         }
     };
 
     const handleDeposit = async () => {
-        if (!tgCtx?.data?.user?.id || !tonConnect) return;
-
+        if (mode !== 'telegram' || !tgCtx?.user?.id || !tonConnect) {
+            setStatus('Функция доступна только в Telegram');
+            return;
+        }
+        
         try {
             setStatus('Подготовка депозита...');
-
+            
             // Генерируем memo для идентификации депозита
             const nonce = Math.random().toString(36).substring(2, 15);
-            const memo = `GAME:${tgCtx.data.user.id}:${nonce}`;
-
+            const memo = `GAME:${tgCtx.user.id}:${nonce}`;
+            
             // Получаем адрес казны из env (в реальном приложении)
             const treasuryAddress = import.meta.env.VITE_TREASURY_ADDRESS || 'EQ...';
-
+            
             // Открываем платеж через TonConnect
             await tonConnect.sendTransaction({
                 validUntil: Math.floor(Date.now() / 1000) + 600, // 10 минут
@@ -104,36 +98,33 @@ export function DiceApp(): React.JSX.Element {
                     }
                 ]
             });
-
+            
             setStatus('Ждём подтверждение транзакции...');
-
+            
             // Опрашиваем сервер до зачисления
             const checkBalance = async () => {
                 try {
-                    const response = await fetch(`${API_BASE}/api/balance?tg_id=${tgCtx.data.user.id}`, {
+                    const data: Balance = await api(`/api/balance?tg_id=${tgCtx.user.id}`, {
                         headers: {
-                            'X-TG-ID': tgCtx.data.user.id.toString()
+                            'X-TG-ID': tgCtx.user.id.toString()
                         }
                     });
-
-                    if (response.ok) {
-                        const data: Balance = await response.json();
-                        if (data.balance > balance) {
-                            setBalance(data.balance);
-                            setStatus(`Депозит зачислен! Новый баланс: ${data.balance} TON`);
-                            return;
-                        }
+                    
+                    if (data.balance > balance) {
+                        setBalance(data.balance);
+                        setStatus(`Депозит зачислен! Новый баланс: ${data.balance} TON`);
+                        return;
                     }
-
+                    
                     // Повторяем проверку через 5 секунд
                     setTimeout(checkBalance, 5000);
                 } catch (error) {
                     console.error('Balance check failed:', error);
                 }
             };
-
+            
             setTimeout(checkBalance, 5000);
-
+            
         } catch (error) {
             console.error('Deposit failed:', error);
             setStatus('Ошибка при депозите');
@@ -141,47 +132,45 @@ export function DiceApp(): React.JSX.Element {
     };
 
     const handleBet = async () => {
-        if (!tgCtx?.data?.user?.id || !isConnected) {
+        if (mode === 'demo') {
+            setStatus('Откройте приложение в Telegram для игры');
+            return;
+        }
+        
+        if (!tgCtx?.user?.id || !isConnected) {
             setStatus('Подключите кошелёк для игры');
             return;
         }
-
+        
         if (balance < amount) {
             setStatus('Недостаточно средств');
             return;
         }
-
+        
         setSpinning(true);
         setStatus('Делаем ставку...');
-
+        
         try {
-            const response = await fetch(`${API_BASE}/api/bet`, {
+            const result: GameResult = await api('/api/bet', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'X-TG-ID': tgCtx.data.user.id.toString()
+                    'X-TG-ID': tgCtx.user.id.toString()
                 },
                 body: JSON.stringify({
-                    tg_id: tgCtx.data.user.id,
+                    tg_id: tgCtx.user.id,
                     amount: amount,
                     target: target
                 })
             });
-
-            if (!response.ok) {
-                throw new Error('Ошибка при ставке');
-            }
-
-            const result: GameResult = await response.json();
-
+            
             setBalance(result.newBalance);
             setRecentGames(prev => [result, ...prev.slice(0, 19)]);
-
-            setStatus(result.result === 'WIN'
-                ? `Победа! +${result.payout} TON`
+            
+            setStatus(result.result === 'WIN' 
+                ? `Победа! +${result.payout} TON` 
                 : `Проигрыш -${amount} TON`
             );
-
+            
         } catch (error) {
             console.error('Bet failed:', error);
             setStatus('Ошибка при ставке');
@@ -191,38 +180,37 @@ export function DiceApp(): React.JSX.Element {
     };
 
     const handleWithdraw = async () => {
-        if (!tgCtx?.data?.user?.id || !tonConnect) return;
-
+        if (mode !== 'telegram' || !tgCtx?.user?.id || !tonConnect) {
+            setStatus('Функция доступна только в Telegram');
+            return;
+        }
+        
         try {
             setStatus('Подготовка вывода...');
-
-            const response = await fetch(`${API_BASE}/api/withdraw`, {
+            
+            await api('/api/withdraw', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'X-TG-ID': tgCtx.data.user.id.toString()
+                    'X-TG-ID': tgCtx.user.id.toString()
                 },
                 body: JSON.stringify({
-                    tg_id: tgCtx.data.user.id,
+                    tg_id: tgCtx.user.id,
                     amount: balance,
                     to: 'auto' // автоматический вывод на подключенный кошелёк
                 })
             });
-
-            if (response.ok) {
-                setStatus('Заявка на вывод отправлена');
-                setBalance(0);
-            } else {
-                throw new Error('Ошибка при выводе');
-            }
-
+            
+            setStatus('Заявка на вывод отправлена');
+            setBalance(0);
+            
         } catch (error) {
             console.error('Withdraw failed:', error);
             setStatus('Ошибка при выводе');
         }
     };
 
-    if (!inTG) {
+    // Демо режим - показываем экран блокировки
+    if (mode === 'demo') {
         return (
             <div style={{
                 display: 'flex',
@@ -248,17 +236,17 @@ export function DiceApp(): React.JSX.Element {
                     <h1 style={{ margin: '0 0 20px 0', fontSize: '24px', fontWeight: 'bold' }}>
                         TON Dice Bank
                     </h1>
-                    <p style={{
-                        margin: '0 0 30px 0',
-                        fontSize: '16px',
+                    <p style={{ 
+                        margin: '0 0 30px 0', 
+                        fontSize: '16px', 
                         lineHeight: '1.5',
                         opacity: 0.9
                     }}>
                         Это приложение работает только в Telegram Mini App.
                         Откройте его через Telegram бота для безопасной игры.
                     </p>
-
-                    <a
+                    
+                    <a 
                         href={`https://t.me/${import.meta.env.VITE_TG_BOT_USERNAME || 'your_bot'}?startapp=1`}
                         style={{
                             display: 'inline-block',
@@ -284,11 +272,11 @@ export function DiceApp(): React.JSX.Element {
                     >
                         🚀 Открыть в Telegram
                     </a>
-
-                    <div style={{
-                        marginTop: '20px',
-                        fontSize: '14px',
-                        opacity: 0.7
+                    
+                    <div style={{ 
+                        marginTop: '20px', 
+                        fontSize: '14px', 
+                        opacity: 0.7 
                     }}>
                         Безопасные транзакции • Проверяемая честность • TON Blockchain
                     </div>
@@ -297,6 +285,7 @@ export function DiceApp(): React.JSX.Element {
         );
     }
 
+    // Telegram режим - основной интерфейс
     return (
         <div className="app">
             <div className="container">
@@ -308,7 +297,7 @@ export function DiceApp(): React.JSX.Element {
                 </div>
 
                 <div className="title">
-                    Привет, {tgCtx?.data?.user?.first_name || 'Игрок'}!
+                    Привет, {tgCtx?.user?.first_name || 'Игрок'}!
                 </div>
                 <div className="subtitle">
                     {isConnected ? 'Ваш TON кошелёк подключен' : 'Подключите TON кошелёк для игры'}
@@ -320,7 +309,7 @@ export function DiceApp(): React.JSX.Element {
                     <div className="balance-display">
                         Баланс: <strong>{balance} TON</strong>
                     </div>
-
+                    
                     {!isConnected ? (
                         <button
                             className="button button-primary"

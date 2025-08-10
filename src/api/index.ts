@@ -14,7 +14,10 @@ const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(helmet());
-app.use(cors());
+app.use(cors({ 
+    origin: ['http://localhost:5173', 'https://<мой_фронт_домен>'], 
+    credentials: false 
+}));
 app.use(express.json());
 
 // Middleware для валидации Telegram ID
@@ -391,6 +394,11 @@ app.post('/api/deposit', async (req, res) => {
 // Запуск сервера
 app.listen(PORT, () => {
     console.log(`API server running on port ${PORT}`);
+});
+
+// 404 handler - всегда возвращаем JSON
+app.use((req, res) => {
+    res.status(404).json({ error: 'Not found' });
 });
 
 // Graceful shutdown

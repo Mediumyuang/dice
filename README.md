@@ -44,7 +44,8 @@ VITE_PUBLIC_WEBAPP_URL=https://<ваш_домен_мини_аппы>
 ```bash
 # web/.env.local (frontend)
 VITE_TG_BOT_USERNAME=<имя бота без @>
-VITE_PUBLIC_WEBAPP_URL=https://<ваш_домен_мини_аппы>
+VITE_API_BASE=https://<мой_бекенд_домен>
+VITE_TREASURY_ADDRESS=<EQ... ваш адрес казны>
 ```
 
 ### 2. Установка зависимостей
