@@ -9,10 +9,10 @@
     "preview": "vite preview --port 5174"
   },
   "dependencies": {
-    "@tonconnect/sdk": "^3.1.0",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "ton-dice": "file:.."
+    "@tonconnect/sdk": "^2.0.0",
+    "@tonconnect/ui": "^2.0.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.1",

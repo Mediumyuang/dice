@@ -1,0 +1,5 @@
+[33m8f4751e[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m fix: improve Telegram WebApp detection - remove unnecessary checks
+[33me364390[m feat: remove browser mode - Telegram Mini App only
+[33m6bc14c4[m feat: implement proper Telegram WebApp authentication with telegram-wallet SDK
+[33mdc9036d[m feat: add comprehensive Telegram WebApp detection and debug logging
+[33m64d5d3f[m feat: add debug logging and force refresh button for better Telegram WebApp detection
