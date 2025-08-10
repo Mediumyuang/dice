@@ -28,6 +28,13 @@ function InnerApp(): React.JSX.Element {
 
     useEffect(() => {
         const wa = (window as any).Telegram?.WebApp;
+        console.log('Telegram WebApp check:', {
+            hasTelegram: !!(window as any).Telegram,
+            hasWebApp: !!wa,
+            userAgent: navigator.userAgent,
+            url: window.location.href
+        });
+
         if (wa) {
             try {
                 wa.ready();
@@ -37,10 +44,16 @@ function InnerApp(): React.JSX.Element {
                 setUsername(u?.username || u?.first_name || 'Игрок');
                 wa.HapticFeedback?.impactOccurred?.('soft');
 
+                console.log('Telegram WebApp initialized:', {
+                    version: wa.version,
+                    platform: wa.platform,
+                    user: u,
+                    isVersionAtLeast69: wa.isVersionAtLeast('6.9')
+                });
+
                 // Check if Telegram Wallet is available
                 if (wa.isVersionAtLeast('6.9')) {
                     console.log('Telegram Wallet is available');
-                    // Try to get wallet info
                     wa.MainButton?.show();
                     wa.MainButton?.setText('Подключить кошелёк');
                     wa.MainButton?.onClick(() => connectTelegramWallet());
@@ -53,9 +66,52 @@ function InnerApp(): React.JSX.Element {
                 setStatus('Ошибка инициализации Telegram WebApp');
             }
         } else {
-            console.log('Telegram WebApp not available - running in browser mode');
-            setStatus('Режим браузера - используйте демо режим для тестирования');
-            setTgAvailable(false);
+            // Check if we're in Telegram by user agent or URL
+            const isInTelegram = navigator.userAgent.includes('Telegram') ||
+                window.location.href.includes('tgwebapp') ||
+                window.location.href.includes('telegram');
+
+            console.log('Telegram WebApp not available:', {
+                isInTelegram,
+                userAgent: navigator.userAgent,
+                url: window.location.href
+            });
+
+            if (isInTelegram) {
+                setStatus('Ожидание инициализации Telegram WebApp...');
+                setTgAvailable(true);
+
+                // Retry initialization after a delay
+                setTimeout(() => {
+                    const retryWa = (window as any).Telegram?.WebApp;
+                    if (retryWa) {
+                        console.log('Telegram WebApp found on retry');
+                        try {
+                            retryWa.ready();
+                            retryWa.expand();
+                            const u = retryWa.initDataUnsafe?.user;
+                            setUsername(u?.username || u?.first_name || 'Игрок');
+
+                            if (retryWa.isVersionAtLeast('6.9')) {
+                                retryWa.MainButton?.show();
+                                retryWa.MainButton?.setText('Подключить кошелёк');
+                                retryWa.MainButton?.onClick(() => connectTelegramWallet());
+                                setStatus('Telegram WebApp готов к работе');
+                            } else {
+                                setStatus('Telegram Wallet недоступен. Используйте демо режим.');
+                            }
+                        } catch (error) {
+                            console.error('Retry initialization failed:', error);
+                            setStatus('Ошибка инициализации Telegram WebApp');
+                        }
+                    } else {
+                        setStatus('Telegram WebApp не найден. Используйте демо режим.');
+                    }
+                }, 1000);
+            } else {
+                setStatus('Режим браузера - используйте демо режим для тестирования');
+                setTgAvailable(false);
+            }
         }
 
         // Check API server availability
@@ -270,13 +326,26 @@ function InnerApp(): React.JSX.Element {
                     <section className="card">
                         <div className="section-title">Подключение кошелька</div>
                         {tgAvailable ? (
-                            <button
-                                className="button button-primary"
-                                onClick={connectTelegramWallet}
-                                style={{ width: '100%', marginTop: 12 }}
-                            >
-                                Подключить Telegram кошелёк
-                            </button>
+                            <>
+                                <button
+                                    className="button button-primary"
+                                    onClick={connectTelegramWallet}
+                                    style={{ width: '100%', marginTop: 12 }}
+                                >
+                                    Подключить Telegram кошелёк
+                                </button>
+                                <div style={{
+                                    marginTop: 8,
+                                    fontSize: 12,
+                                    color: '#a9b2c1',
+                                    textAlign: 'center',
+                                    padding: '8px',
+                                    background: 'rgba(59, 130, 246, 0.1)',
+                                    borderRadius: '6px'
+                                }}>
+                                    Telegram WebApp обнаружен
+                                </div>
+                            </>
                         ) : (
                             <div style={{
                                 padding: '12px',
