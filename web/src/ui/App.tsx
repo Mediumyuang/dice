@@ -139,8 +139,9 @@ function InnerApp(): React.JSX.Element {
                     }
                 }, 1000);
             } else {
-                console.log('Not in Telegram - browser mode');
-                setStatus('Режим браузера - используйте демо режим для тестирования');
+                // Not in Telegram - show error message
+                console.log('Not in Telegram - Mini App requires Telegram');
+                setStatus('Это приложение работает только в Telegram. Откройте через Telegram Mini App.');
                 setTgAvailable(false);
             }
         }
@@ -407,7 +408,7 @@ function InnerApp(): React.JSX.Element {
         <div className="app">
             <div className="container">
                 <div className="badge" style={{ justifyContent: 'space-between', width: '100%' }}>
-                    <span>TON Dice · Mini App v1.2</span>
+                    <span>TON Dice · Telegram Mini App</span>
                     <span className="status">
                         {connected ? 'Telegram кошелёк подключен' : 'Кошелёк не подключен'}
                     </span>
@@ -478,21 +479,10 @@ function InnerApp(): React.JSX.Element {
                         >
                             🔄 Обновить страницу
                         </button>
-                        <button
-                            className="button button-secondary"
-                            onClick={() => {
-                                console.log('Force Telegram mode clicked');
-                                setTgAvailable(true);
-                                setStatus('Принудительно включен Telegram режим');
-                            }}
-                            style={{ width: '100%', marginTop: 8, fontSize: '12px' }}
-                        >
-                            🔧 Принудительно Telegram режим
-                        </button>
                         <div style={{ marginTop: 12, fontSize: 12, color: '#a9b2c1', textAlign: 'center' }}>
                             {tgAvailable ?
                                 'Используйте встроенный Telegram кошелёк для игры' :
-                                'Для полного функционала откройте приложение через Telegram'
+                                'Это приложение работает только в Telegram Mini App'
                             }
                         </div>
                     </section>
