@@ -18,6 +18,17 @@ model User {
   
   Balance Balance?
   Ledger  Ledger[]
+  
+  // Bot-specific fields
+  server_seed      String?  // hex
+  server_seed_hash String?  // sha256 hex
+  client_seed      String?  // by default: telegramId as string
+  nonce            Int      @default(0)
+  username         String?
+  updated_at       DateTime @default(now())
+  
+  PendingBet PendingBet?
+  Bet       Bet[]
 }
 
 model Balance {
@@ -38,4 +49,29 @@ model Ledger {
   
   @@index([user_id, created_at])
   @@index([tx_hash])
+}
+
+// Bot-specific models
+model PendingBet {
+  user_id    Int      @id
+  target     Int      // roll-under target 1..100
+  amount     Int      // integer points
+  created_at DateTime @default(now())
+  user       User     @relation(fields: [user_id], references: [id])
+}
+
+model Bet {
+  id                Int      @id @default(autoincrement())
+  user_id           Int
+  nonce             Int
+  target            Int
+  amount            Int
+  roll              Int      // 0..99
+  win               Boolean
+  payout            Int      // gross credited amount if win, else 0
+  server_seed_hash  String
+  created_at        DateTime @default(now())
+  user              User     @relation(fields: [user_id], references: [id])
+  
+  @@index([user_id, created_at])
 }
