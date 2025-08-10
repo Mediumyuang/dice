@@ -1,6 +1,7 @@
 {
-  "url": "https://dice-vert-delta.vercel.app",
+  "url": "http://localhost:5173",
   "name": "TON Dice",
-  "iconUrl": "https://dice-vert-delta.vercel.app/icon.png"
+  "iconUrl": "http://localhost:5173/icon.png",
+  "termsOfUseUrl": "http://localhost:5173/terms",
+  "privacyPolicyUrl": "http://localhost:5173/privacy"
 }
-
