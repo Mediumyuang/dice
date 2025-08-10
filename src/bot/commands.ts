@@ -89,7 +89,7 @@ export function registerCommands(bot: Telegraf<Context>): void {
         setPendingBet(user.telegramId, target, amount);
         const edgeBps = dynamicEdgeBps(target);
         const previewPayout = calcPayoutGross(amount, target);
-        ctx.reply(`Ставка: ROLL UNDER ${target}, сумма ${amount} POINTS. Теоретич. выплата: ${previewPayout} (edge ${(edgeBps/100).toFixed(2)}%). Нажми /roll.`);
+        ctx.reply(`Ставка: ROLL UNDER ${target}, сумма ${amount} POINTS. Теоретич. выплата: ${previewPayout} (edge ${(edgeBps / 100).toFixed(2)}%). Нажми /roll.`);
     });
 
     bot.command('roll', (ctx) => {
