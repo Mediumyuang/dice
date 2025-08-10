@@ -27,6 +27,11 @@ function InnerApp(): React.JSX.Element {
     const [balance, setBalance] = useState<number>(1000);
 
     useEffect(() => {
+        console.log('=== TON DICE APP INITIALIZATION ===');
+        console.log('Current time:', new Date().toISOString());
+        console.log('Window location:', window.location.href);
+        console.log('User agent:', navigator.userAgent);
+
         const wa = (window as any).Telegram?.WebApp;
         console.log('Telegram WebApp check:', {
             hasTelegram: !!(window as any).Telegram,
@@ -105,10 +110,12 @@ function InnerApp(): React.JSX.Element {
                             setStatus('Ошибка инициализации Telegram WebApp');
                         }
                     } else {
+                        console.log('Telegram WebApp still not found after retry');
                         setStatus('Telegram WebApp не найден. Используйте демо режим.');
                     }
                 }, 1000);
             } else {
+                console.log('Not in Telegram - browser mode');
                 setStatus('Режим браузера - используйте демо режим для тестирования');
                 setTgAvailable(false);
             }
@@ -310,7 +317,7 @@ function InnerApp(): React.JSX.Element {
         <div className="app">
             <div className="container">
                 <div className="badge" style={{ justifyContent: 'space-between', width: '100%' }}>
-                    <span>TON Dice · Mini App</span>
+                    <span>TON Dice · Mini App v1.2</span>
                     <span className="status">
                         {connected ? 'Telegram кошелёк подключен' : 'Кошелёк не подключен'}
                     </span>
@@ -370,6 +377,16 @@ function InnerApp(): React.JSX.Element {
                             style={{ width: '100%', marginTop: 8 }}
                         >
                             Демо режим (без кошелька)
+                        </button>
+                        <button
+                            className="button button-secondary"
+                            onClick={() => {
+                                console.log('Force refresh clicked');
+                                window.location.reload();
+                            }}
+                            style={{ width: '100%', marginTop: 8, fontSize: '12px' }}
+                        >
+                            🔄 Обновить страницу
                         </button>
                         <div style={{ marginTop: 12, fontSize: 12, color: '#a9b2c1', textAlign: 'center' }}>
                             {tgAvailable ?
