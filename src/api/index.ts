@@ -15,6 +15,29 @@ app.use(cors({
 }));
 app.use(express.json());
 
+// Helper function to get user by wallet address
+function getUserByWallet(walletAddress: string) {
+    // For now, we'll use a simple hash of the wallet address as telegramId
+    // In a real app, you'd have a separate table for wallet mappings
+    const telegramId = Math.abs(walletAddress.split('').reduce((a, b) => {
+        a = ((a << 5) - a) + b.charCodeAt(0);
+        return a & a;
+    }, 0));
+
+    return getUser(telegramId);
+}
+
+function createUserByWallet(walletAddress: string) {
+    const telegramId = Math.abs(walletAddress.split('').reduce((a, b) => {
+        a = ((a << 5) - a) + b.charCodeAt(0);
+        return a & a;
+    }, 0));
+
+    const s = generateServerSeed('default');
+    const h = serverSeedHash(s);
+    return upsertUser(telegramId, walletAddress, s, h, walletAddress);
+}
+
 // Game API endpoints
 app.post('/api/game/bet', async (req, res) => {
     try {
@@ -25,11 +48,9 @@ app.post('/api/game/bet', async (req, res) => {
         }
 
         // Create or get user by wallet address
-        let user = getUser(walletAddress);
+        let user = getUserByWallet(walletAddress);
         if (!user) {
-            const s = generateServerSeed('default');
-            const h = serverSeedHash(s);
-            user = upsertUser(walletAddress, walletAddress, s, h, walletAddress);
+            user = createUserByWallet(walletAddress);
         }
 
         // Validate bet
@@ -68,7 +89,7 @@ app.post('/api/game/roll', async (req, res) => {
             return res.status(400).json({ error: 'Wallet address required' });
         }
 
-        let user = getUser(walletAddress);
+        let user = getUserByWallet(walletAddress);
         if (!user) {
             return res.status(404).json({ error: 'User not found' });
         }
@@ -122,7 +143,7 @@ app.post('/api/game/roll', async (req, res) => {
 app.get('/api/user/:walletAddress', (req, res) => {
     try {
         const { walletAddress } = req.params;
-        const user = getUser(walletAddress);
+        const user = getUserByWallet(walletAddress);
 
         if (!user) {
             return res.status(404).json({ error: 'User not found' });
@@ -150,11 +171,9 @@ app.post('/api/user/connect', async (req, res) => {
             return res.status(400).json({ error: 'Wallet address required' });
         }
 
-        let user = getUser(walletAddress);
+        let user = getUserByWallet(walletAddress);
         if (!user) {
-            const s = generateServerSeed('default');
-            const h = serverSeedHash(s);
-            user = upsertUser(walletAddress, walletAddress, s, h, walletAddress);
+            user = createUserByWallet(walletAddress);
         }
 
         res.json({

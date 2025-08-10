@@ -30,41 +30,58 @@ function InnerApp(): React.JSX.Element {
 
     useEffect(() => {
         // Initialize TON Connect
-        const connector = new TonConnect({
-            manifestUrl: '/tonconnect-manifest.json'
-        });
-        setTonConnect(connector);
+        try {
+            console.log('Initializing TonConnect...');
+            const connector = new TonConnect({
+                manifestUrl: '/tonconnect-manifest.json'
+            });
+            setTonConnect(connector);
 
-        // Check if already connected
-        const unsubscribe = connector.onStatusChange(async (wallet) => {
-            if (wallet) {
-                setConnected(true);
-                setWalletAddress(wallet.account.address);
+            // Check if already connected
+            const unsubscribe = connector.onStatusChange(async (wallet) => {
+                console.log('Wallet status changed:', wallet ? 'connected' : 'disconnected');
 
-                // Connect to backend and get user data
-                try {
-                    const response = await fetch(`${API_BASE}/api/user/connect`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({ walletAddress: wallet.account.address })
-                    });
+                if (wallet) {
+                    setConnected(true);
+                    setWalletAddress(wallet.account.address);
+                    setStatus('Кошелёк подключен!');
 
-                    if (response.ok) {
-                        const data = await response.json();
-                        setBalance(data.balance);
+                    // Connect to backend and get user data
+                    try {
+                        const response = await fetch(`${API_BASE}/api/user/connect`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({ walletAddress: wallet.account.address })
+                        });
+
+                        if (response.ok) {
+                            const data = await response.json();
+                            setBalance(data.balance);
+                            setStatus(`Баланс: ${data.balance} TON`);
+                        } else {
+                            console.error('Backend connection failed:', response.status);
+                            setStatus('API сервер недоступен, но кошелёк подключен');
+                            setBalance(1000); // Fallback balance for testing
+                        }
+                    } catch (error) {
+                        console.error('Failed to connect to backend:', error);
+                        setStatus('API сервер недоступен, но кошелёк подключен');
+                        setBalance(1000); // Fallback balance for testing
                     }
-                } catch (error) {
-                    console.error('Failed to connect to backend:', error);
+                } else {
+                    setConnected(false);
+                    setWalletAddress('');
+                    setStatus('Кошелёк отключен');
                 }
-            } else {
-                setConnected(false);
-                setWalletAddress('');
-            }
-        });
+            });
 
-        return () => unsubscribe();
+            return () => unsubscribe();
+        } catch (error) {
+            console.error('TonConnect initialization error:', error);
+            setStatus('Ошибка инициализации TonConnect');
+        }
     }, []);
 
     useEffect(() => {
@@ -79,6 +96,21 @@ function InnerApp(): React.JSX.Element {
                 wa.HapticFeedback?.impactOccurred?.('soft');
             } catch { }
         }
+
+        // Check API server availability
+        fetch(`${API_BASE}/api/health`)
+            .then(response => {
+                if (response.ok) {
+                    console.log('API server is available');
+                } else {
+                    console.error('API server responded with error:', response.status);
+                    setStatus('API сервер недоступен');
+                }
+            })
+            .catch(error => {
+                console.error('API server connection failed:', error);
+                setStatus('API сервер недоступен');
+            });
 
         // Load recent games from localStorage
         try {
@@ -103,11 +135,21 @@ function InnerApp(): React.JSX.Element {
     function clampAmount(n: number): number { return Math.max(1, Math.floor(n)); }
 
     async function connectWallet(): Promise<void> {
-        if (!tonConnect) return;
+        if (!tonConnect) {
+            setStatus('TonConnect не инициализирован');
+            return;
+        }
+
         try {
+            setStatus('Подключение к кошельку...');
+            console.log('Attempting to connect wallet...');
+
             await tonConnect.connect();
+
+            // Если подключение прошло успешно, статус обновится в onStatusChange
         } catch (error) {
-            setStatus('Ошибка подключения кошелька');
+            console.error('Wallet connection error:', error);
+            setStatus(`Ошибка подключения: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
         }
     }
 
@@ -215,7 +257,7 @@ function InnerApp(): React.JSX.Element {
                 <div className="badge" style={{ justifyContent: 'space-between', width: '100%' }}>
                     <span>TON Dice · Mini App</span>
                     <span className="status">
-                        {connected ? `Баланс: ${balance} TON` : 'Кошелёк не подключен'}
+                        {connected ? 'Кошелёк подключен' : 'Кошелёк не подключен'}
                     </span>
                 </div>
 
@@ -234,6 +276,18 @@ function InnerApp(): React.JSX.Element {
                             style={{ width: '100%', marginTop: 12 }}
                         >
                             Подключить TON кошелёк
+                        </button>
+                        <button
+                            className="button button-secondary"
+                            onClick={() => {
+                                setConnected(true);
+                                setWalletAddress('EQDemo...1234');
+                                setBalance(1000);
+                                setStatus('Демо режим - кошелёк подключен');
+                            }}
+                            style={{ width: '100%', marginTop: 8 }}
+                        >
+                            Демо режим (без кошелька)
                         </button>
                     </section>
                 ) : (

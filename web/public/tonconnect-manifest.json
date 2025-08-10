@@ -1,7 +1,7 @@
 {
   "url": "http://localhost:5173",
   "name": "TON Dice",
-  "iconUrl": "http://localhost:5173/icon.png",
+  "iconUrl": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0IiByeD0iMTIiIGZpbGw9IiMwMDg4RkYiLz4KPHN2ZyB3aWR0aD0iMTIiIGhlaWdodD0iMTIiIHZpZXdCb3g9IjAgMCAxMiAxMiIgZmlsbD0id2hpdGUiIHN0eWxlPSJtYXJnaW46IDZweDsiPgo8cGF0aCBkPSJNMiA2aDh2MkgyVjZ6Ii8+CjxwYXRoIGQ9Ik02IDJ2OGgtMlYyaDJ6Ii8+Cjwvc3ZnPgo8L3N2Zz4K",
   "termsOfUseUrl": "http://localhost:5173/terms",
   "privacyPolicyUrl": "http://localhost:5173/privacy"
 }
