@@ -149,7 +149,19 @@ function InnerApp(): React.JSX.Element {
             // Если подключение прошло успешно, статус обновится в onStatusChange
         } catch (error) {
             console.error('Wallet connection error:', error);
-            setStatus(`Ошибка подключения: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
+
+            // Handle specific TonConnect errors
+            if (error instanceof Error) {
+                if (error.message.includes('jsBridgeKey') || error.message.includes('Cannot use')) {
+                    setStatus('TON кошелёк не найден. Установите TON кошелёк или используйте демо режим.');
+                } else if (error.message.includes('User rejected')) {
+                    setStatus('Подключение отменено пользователем');
+                } else {
+                    setStatus(`Ошибка подключения: ${error.message}`);
+                }
+            } else {
+                setStatus('Неизвестная ошибка подключения');
+            }
         }
     }
 
@@ -289,6 +301,22 @@ function InnerApp(): React.JSX.Element {
                         >
                             Демо режим (без кошелька)
                         </button>
+                        <div style={{ marginTop: 12, fontSize: 12, color: '#a9b2c1', textAlign: 'center' }}>
+                            Для подключения TON кошелька установите{' '}
+                            <a href="https://chrome.google.com/webstore/detail/ton-wallet/nphplpgoakhhjchkkhmiggakijnkhfnd"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{ color: '#60a5fa', textDecoration: 'underline' }}>
+                                TON Wallet
+                            </a>
+                            {' '}или{' '}
+                            <a href="https://tonkeeper.com/"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{ color: '#60a5fa', textDecoration: 'underline' }}>
+                                Tonkeeper
+                            </a>
+                        </div>
                     </section>
                 ) : (
                     <section className="card">
