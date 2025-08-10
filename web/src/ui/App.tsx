@@ -31,22 +31,16 @@ function InnerApp(): React.JSX.Element {
         console.log('Current time:', new Date().toISOString());
         console.log('Window location:', window.location.href);
         console.log('User agent:', navigator.userAgent);
-        console.log('Window object keys:', Object.keys(window));
 
-        // Check for Telegram WebApp in different ways
+        // Check for Telegram WebApp
         const telegram = (window as any).Telegram;
         const webApp = telegram?.WebApp;
-        const tgWebApp = (window as any).tgWebApp;
 
         console.log('Telegram detection:', {
             hasTelegram: !!telegram,
             hasWebApp: !!webApp,
-            hasTgWebApp: !!tgWebApp,
-            telegramKeys: telegram ? Object.keys(telegram) : [],
-            webAppKeys: webApp ? Object.keys(webApp) : [],
             userAgent: navigator.userAgent,
-            url: window.location.href,
-            referrer: document.referrer
+            url: window.location.href
         });
 
         if (webApp) {
@@ -84,6 +78,7 @@ function InnerApp(): React.JSX.Element {
                     webApp.MainButton?.show();
                     webApp.MainButton?.setText('Подключить кошелёк');
                     webApp.MainButton?.onClick(() => connectTelegramWallet());
+                    setStatus('Telegram WebApp готов к работе');
                 } else {
                     console.log('Telegram Wallet not available, using demo mode');
                     setStatus('Telegram Wallet недоступен. Используйте демо режим.');
@@ -93,57 +88,39 @@ function InnerApp(): React.JSX.Element {
                 setStatus('Ошибка инициализации Telegram WebApp');
             }
         } else {
-            // Check if we're in Telegram by user agent or URL
-            const isInTelegram = navigator.userAgent.includes('Telegram') ||
-                window.location.href.includes('tgwebapp') ||
-                window.location.href.includes('telegram') ||
-                document.referrer.includes('telegram');
+            // If we're in Telegram but WebApp is not available yet, wait for it
+            console.log('Telegram WebApp not available yet, waiting...');
+            setStatus('Инициализация Telegram WebApp...');
+            setTgAvailable(true);
 
-            console.log('Telegram WebApp not available:', {
-                isInTelegram,
-                userAgent: navigator.userAgent,
-                url: window.location.href,
-                referrer: document.referrer
-            });
+            // Retry initialization after a delay
+            setTimeout(() => {
+                const retryWa = (window as any).Telegram?.WebApp;
+                if (retryWa) {
+                    console.log('Telegram WebApp found on retry');
+                    try {
+                        retryWa.ready();
+                        retryWa.expand();
+                        const u = retryWa.initDataUnsafe?.user;
+                        setUsername(u?.username || u?.first_name || 'Игрок');
 
-            if (isInTelegram) {
-                setStatus('Ожидание инициализации Telegram WebApp...');
-                setTgAvailable(true);
-
-                // Retry initialization after a delay
-                setTimeout(() => {
-                    const retryWa = (window as any).Telegram?.WebApp;
-                    if (retryWa) {
-                        console.log('Telegram WebApp found on retry');
-                        try {
-                            retryWa.ready();
-                            retryWa.expand();
-                            const u = retryWa.initDataUnsafe?.user;
-                            setUsername(u?.username || u?.first_name || 'Игрок');
-
-                            if (retryWa.isVersionAtLeast('6.9')) {
-                                retryWa.MainButton?.show();
-                                retryWa.MainButton?.setText('Подключить кошелёк');
-                                retryWa.MainButton?.onClick(() => connectTelegramWallet());
-                                setStatus('Telegram WebApp готов к работе');
-                            } else {
-                                setStatus('Telegram Wallet недоступен. Используйте демо режим.');
-                            }
-                        } catch (error) {
-                            console.error('Retry initialization failed:', error);
-                            setStatus('Ошибка инициализации Telegram WebApp');
+                        if (retryWa.isVersionAtLeast('6.9')) {
+                            retryWa.MainButton?.show();
+                            retryWa.MainButton?.setText('Подключить кошелёк');
+                            retryWa.MainButton?.onClick(() => connectTelegramWallet());
+                            setStatus('Telegram WebApp готов к работе');
+                        } else {
+                            setStatus('Telegram Wallet недоступен. Используйте демо режим.');
                         }
-                    } else {
-                        console.log('Telegram WebApp still not found after retry');
-                        setStatus('Telegram WebApp не найден. Используйте демо режим.');
+                    } catch (error) {
+                        console.error('Retry initialization failed:', error);
+                        setStatus('Ошибка инициализации Telegram WebApp');
                     }
-                }, 1000);
-            } else {
-                // Not in Telegram - show error message
-                console.log('Not in Telegram - Mini App requires Telegram');
-                setStatus('Это приложение работает только в Telegram. Откройте через Telegram Mini App.');
-                setTgAvailable(false);
-            }
+                } else {
+                    console.log('Telegram WebApp still not found after retry');
+                    setStatus('Telegram WebApp не найден. Используйте демо режим.');
+                }
+            }, 1000);
         }
 
         // Check API server availability
@@ -441,7 +418,7 @@ function InnerApp(): React.JSX.Element {
                                     background: 'rgba(59, 130, 246, 0.1)',
                                     borderRadius: '6px'
                                 }}>
-                                    Telegram WebApp обнаружен
+                                    Telegram WebApp готов к работе
                                 </div>
                             </>
                         ) : (
@@ -454,7 +431,7 @@ function InnerApp(): React.JSX.Element {
                                 fontSize: '14px',
                                 color: '#a9b2c1'
                             }}>
-                                Откройте приложение через Telegram для подключения кошелька
+                                Инициализация Telegram WebApp...
                             </div>
                         )}
                         <button
@@ -480,10 +457,7 @@ function InnerApp(): React.JSX.Element {
                             🔄 Обновить страницу
                         </button>
                         <div style={{ marginTop: 12, fontSize: 12, color: '#a9b2c1', textAlign: 'center' }}>
-                            {tgAvailable ?
-                                'Используйте встроенный Telegram кошелёк для игры' :
-                                'Это приложение работает только в Telegram Mini App'
-                            }
+                            Используйте встроенный Telegram кошелёк для игры
                         </div>
                     </section>
                 ) : (
