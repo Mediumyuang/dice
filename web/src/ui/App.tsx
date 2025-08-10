@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { TonConnect } from '@tonconnect/sdk';
 
 type RollResult = {
     serverSeedHash: string;
@@ -22,67 +21,10 @@ function InnerApp(): React.JSX.Element {
     const [spinning, setSpinning] = useState<boolean>(false);
     const [recent, setRecent] = useState<{ ts: number; roll: number; target: number; amount: number; win: boolean; payout: number }[]>([]);
 
-    // TON Wallet integration
-    const [tonConnect, setTonConnect] = useState<TonConnect | null>(null);
+    // Telegram Wallet integration
     const [connected, setConnected] = useState<boolean>(false);
     const [walletAddress, setWalletAddress] = useState<string>('');
     const [balance, setBalance] = useState<number>(1000);
-
-    useEffect(() => {
-        // Initialize TON Connect
-        try {
-            console.log('Initializing TonConnect...');
-            const connector = new TonConnect({
-                manifestUrl: '/tonconnect-manifest.json'
-            });
-            setTonConnect(connector);
-
-            // Check if already connected
-            const unsubscribe = connector.onStatusChange(async (wallet) => {
-                console.log('Wallet status changed:', wallet ? 'connected' : 'disconnected');
-
-                if (wallet) {
-                    setConnected(true);
-                    setWalletAddress(wallet.account.address);
-                    setStatus('Кошелёк подключен!');
-
-                    // Connect to backend and get user data
-                    try {
-                        const response = await fetch(`${API_BASE}/api/user/connect`, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify({ walletAddress: wallet.account.address })
-                        });
-
-                        if (response.ok) {
-                            const data = await response.json();
-                            setBalance(data.balance);
-                            setStatus(`Баланс: ${data.balance} TON`);
-                        } else {
-                            console.error('Backend connection failed:', response.status);
-                            setStatus('API сервер недоступен, но кошелёк подключен');
-                            setBalance(1000); // Fallback balance for testing
-                        }
-                    } catch (error) {
-                        console.error('Failed to connect to backend:', error);
-                        setStatus('API сервер недоступен, но кошелёк подключен');
-                        setBalance(1000); // Fallback balance for testing
-                    }
-                } else {
-                    setConnected(false);
-                    setWalletAddress('');
-                    setStatus('Кошелёк отключен');
-                }
-            });
-
-            return () => unsubscribe();
-        } catch (error) {
-            console.error('TonConnect initialization error:', error);
-            setStatus('Ошибка инициализации TonConnect');
-        }
-    }, []);
 
     useEffect(() => {
         const wa = (window as any).Telegram?.WebApp;
@@ -94,7 +36,24 @@ function InnerApp(): React.JSX.Element {
                 const u = wa.initDataUnsafe?.user;
                 setUsername(u?.username || u?.first_name || 'Игрок');
                 wa.HapticFeedback?.impactOccurred?.('soft');
-            } catch { }
+
+                // Check if Telegram Wallet is available
+                if (wa.isVersionAtLeast('6.9')) {
+                    console.log('Telegram Wallet is available');
+                    // Try to get wallet info
+                    wa.MainButton?.show();
+                    wa.MainButton?.setText('Подключить кошелёк');
+                    wa.MainButton?.onClick(() => connectTelegramWallet());
+                } else {
+                    console.log('Telegram Wallet not available, using demo mode');
+                    setStatus('Telegram Wallet недоступен. Используйте демо режим.');
+                }
+            } catch (error) {
+                console.error('Telegram WebApp error:', error);
+                setStatus('Ошибка инициализации Telegram WebApp');
+            }
+        } else {
+            setStatus('Откройте приложение через Telegram для полного функционала');
         }
 
         // Check API server availability
@@ -134,43 +93,69 @@ function InnerApp(): React.JSX.Element {
     function clampTarget(n: number): number { return Math.max(1, Math.min(100, Math.floor(n))); }
     function clampAmount(n: number): number { return Math.max(1, Math.floor(n)); }
 
-    async function connectWallet(): Promise<void> {
-        if (!tonConnect) {
-            setStatus('TonConnect не инициализирован');
+    async function connectTelegramWallet(): Promise<void> {
+        const wa = (window as any).Telegram?.WebApp;
+        if (!wa) {
+            setStatus('Telegram WebApp недоступен');
             return;
         }
 
         try {
-            setStatus('Подключение к кошельку...');
-            console.log('Attempting to connect wallet...');
+            setStatus('Подключение к Telegram кошельку...');
 
-            await tonConnect.connect();
+            // Use Telegram Wallet API
+            if (wa.isVersionAtLeast('6.9')) {
+                // Request wallet access
+                const result = await wa.requestWriteAccess();
+                if (result) {
+                    // Get wallet info
+                    const walletInfo = await wa.getWalletInfo();
+                    if (walletInfo) {
+                        setConnected(true);
+                        setWalletAddress(walletInfo.address || 'TG_Wallet');
+                        setBalance(walletInfo.balance || 1000);
+                        setStatus('Telegram кошелёк подключен!');
 
-            // Если подключение прошло успешно, статус обновится в onStatusChange
-        } catch (error) {
-            console.error('Wallet connection error:', error);
+                        // Connect to backend
+                        try {
+                            const response = await fetch(`${API_BASE}/api/user/connect`, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify({ walletAddress: walletInfo.address || 'TG_Wallet' })
+                            });
 
-            // Handle specific TonConnect errors
-            if (error instanceof Error) {
-                if (error.message.includes('jsBridgeKey') || error.message.includes('Cannot use')) {
-                    setStatus('TON кошелёк не найден. Установите TON кошелёк или используйте демо режим.');
-                } else if (error.message.includes('User rejected')) {
-                    setStatus('Подключение отменено пользователем');
+                            if (response.ok) {
+                                const data = await response.json();
+                                setBalance(data.balance);
+                                setStatus(`Баланс: ${data.balance} TON`);
+                            }
+                        } catch (error) {
+                            console.error('Backend connection failed:', error);
+                            setStatus('API сервер недоступен, но кошелёк подключен');
+                        }
+                    }
                 } else {
-                    setStatus(`Ошибка подключения: ${error.message}`);
+                    setStatus('Доступ к кошельку не предоставлен');
                 }
             } else {
-                setStatus('Неизвестная ошибка подключения');
+                setStatus('Telegram Wallet недоступен в этой версии');
             }
+        } catch (error) {
+            console.error('Telegram Wallet connection error:', error);
+            setStatus('Ошибка подключения к Telegram кошельку');
         }
     }
 
     async function disconnectWallet(): Promise<void> {
-        if (!tonConnect) return;
-        try {
-            await tonConnect.disconnect();
-        } catch (error) {
-            setStatus('Ошибка отключения кошелька');
+        setConnected(false);
+        setWalletAddress('');
+        setStatus('Кошелёк отключен');
+
+        const wa = (window as any).Telegram?.WebApp;
+        if (wa?.MainButton) {
+            wa.MainButton.hide();
         }
     }
 
@@ -269,13 +254,13 @@ function InnerApp(): React.JSX.Element {
                 <div className="badge" style={{ justifyContent: 'space-between', width: '100%' }}>
                     <span>TON Dice · Mini App</span>
                     <span className="status">
-                        {connected ? 'Кошелёк подключен' : 'Кошелёк не подключен'}
+                        {connected ? 'Telegram кошелёк подключен' : 'Кошелёк не подключен'}
                     </span>
                 </div>
 
                 <div className="title">Привет, {username}!</div>
                 <div className="subtitle">
-                    {connected ? 'TON кошелёк подключен' : 'Подключите TON кошелёк для игры'}
+                    {connected ? 'Telegram кошелёк подключен' : 'Подключите Telegram кошелёк для игры'}
                 </div>
 
                 {/* Wallet Connection */}
@@ -284,10 +269,10 @@ function InnerApp(): React.JSX.Element {
                         <div className="section-title">Подключение кошелька</div>
                         <button
                             className="button button-primary"
-                            onClick={connectWallet}
+                            onClick={connectTelegramWallet}
                             style={{ width: '100%', marginTop: 12 }}
                         >
-                            Подключить TON кошелёк
+                            Подключить Telegram кошелёк
                         </button>
                         <button
                             className="button button-secondary"
@@ -302,20 +287,10 @@ function InnerApp(): React.JSX.Element {
                             Демо режим (без кошелька)
                         </button>
                         <div style={{ marginTop: 12, fontSize: 12, color: '#a9b2c1', textAlign: 'center' }}>
-                            Для подключения TON кошелька установите{' '}
-                            <a href="https://chrome.google.com/webstore/detail/ton-wallet/nphplpgoakhhjchkkhmiggakijnkhfnd"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                style={{ color: '#60a5fa', textDecoration: 'underline' }}>
-                                TON Wallet
-                            </a>
-                            {' '}или{' '}
-                            <a href="https://tonkeeper.com/"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                style={{ color: '#60a5fa', textDecoration: 'underline' }}>
-                                Tonkeeper
-                            </a>
+                            {tgAvailable ?
+                                'Используйте встроенный Telegram кошелёк для игры' :
+                                'Откройте приложение через Telegram для доступа к кошельку'
+                            }
                         </div>
                     </section>
                 ) : (
