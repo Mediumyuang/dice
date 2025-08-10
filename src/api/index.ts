@@ -165,25 +165,48 @@ app.get('/api/user/:walletAddress', (req, res) => {
 
 app.post('/api/user/connect', async (req, res) => {
     try {
-        const { walletAddress } = req.body;
+        const { walletAddress, telegramId, username, firstName } = req.body;
 
         if (!walletAddress) {
-            return res.status(400).json({ error: 'Wallet address required' });
+            return res.status(400).json({ error: 'Wallet address is required' });
         }
 
-        let user = getUserByWallet(walletAddress);
+        console.log('User connect request:', { walletAddress, telegramId, username, firstName });
+
+        // Use telegramId if provided, otherwise fallback to wallet address hash
+        let userId: number;
+        if (telegramId && typeof telegramId === 'number') {
+            userId = telegramId;
+        } else {
+            // Fallback to wallet address hash for compatibility
+            userId = Math.abs(walletAddress.split('').reduce((a, b) => {
+                a = ((a << 5) - a) + b.charCodeAt(0);
+                return a & a;
+            }, 0));
+        }
+
+        // Get or create user
+        let user = getUser(userId);
         if (!user) {
-            user = createUserByWallet(walletAddress);
+            const s = generateServerSeed('default');
+            const h = serverSeedHash(s);
+            user = upsertUser(userId, walletAddress, s, h, username || firstName || 'User');
+        } else {
+            // Update user info if we have new data
+            if (username || firstName) {
+                // Note: This would require updating the upsertUser function to handle updates
+                console.log('User info update:', { userId, username, firstName });
+            }
         }
 
         res.json({
             success: true,
             balance: user.balance,
-            serverSeedHash: user.serverSeedHash
+            telegramId: userId,
+            walletAddress: user.walletAddress
         });
-
     } catch (error) {
-        console.error('Connect error:', error);
+        console.error('User connect error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });

@@ -67,6 +67,17 @@ function InnerApp(): React.JSX.Element {
                     initDataUnsafe: webApp.initDataUnsafe
                 });
 
+                // Set username from Telegram user data
+                if (u) {
+                    setUsername(u.username || u.first_name || 'Игрок');
+                    console.log('User authenticated:', {
+                        id: u.id,
+                        username: u.username,
+                        firstName: u.first_name,
+                        lastName: u.last_name
+                    });
+                }
+
                 // Check if Telegram Wallet is available
                 if (webApp.isVersionAtLeast('6.9')) {
                     console.log('Telegram Wallet is available');
@@ -181,27 +192,47 @@ function InnerApp(): React.JSX.Element {
         try {
             setStatus('Подключение к Telegram кошельку...');
 
-            // Use Telegram Wallet API
+            // Check if wallet integration is enabled
+            const initData = wa.initDataUnsafe;
+            console.log('Telegram WebApp initData:', initData);
+
+            if (!initData) {
+                setStatus('Данные инициализации недоступны');
+                return;
+            }
+
+            // Check if user is authenticated
+            if (!initData.user) {
+                setStatus('Пользователь не авторизован в Telegram');
+                return;
+            }
+
+            // Use telegram-wallet SDK for TON wallet connection
             if (wa.isVersionAtLeast('6.9')) {
-                // Request wallet access
-                const result = await wa.requestWriteAccess();
-                if (result) {
-                    // Get wallet info
-                    const walletInfo = await wa.getWalletInfo();
-                    if (walletInfo) {
+                try {
+                    // Request wallet access using telegram-wallet SDK
+                    const wallet = await wa.requestWallet();
+
+                    if (wallet) {
+                        console.log('Wallet connected:', wallet);
                         setConnected(true);
-                        setWalletAddress(walletInfo.address || 'TG_Wallet');
-                        setBalance(walletInfo.balance || 1000);
+                        setWalletAddress(wallet.address || 'TG_Wallet');
+                        setBalance(wallet.balance || 1000);
                         setStatus('Telegram кошелёк подключен!');
 
-                        // Connect to backend
+                        // Connect to backend with user data
                         try {
                             const response = await fetch(`${API_BASE}/api/user/connect`, {
                                 method: 'POST',
                                 headers: {
                                     'Content-Type': 'application/json',
                                 },
-                                body: JSON.stringify({ walletAddress: walletInfo.address || 'TG_Wallet' })
+                                body: JSON.stringify({
+                                    walletAddress: wallet.address || 'TG_Wallet',
+                                    telegramId: initData.user.id,
+                                    username: initData.user.username,
+                                    firstName: initData.user.first_name
+                                })
                             });
 
                             if (response.ok) {
@@ -213,9 +244,55 @@ function InnerApp(): React.JSX.Element {
                             console.error('Backend connection failed:', error);
                             setStatus('API сервер недоступен, но кошелёк подключен');
                         }
+                    } else {
+                        setStatus('Кошелёк не подключен');
                     }
-                } else {
-                    setStatus('Доступ к кошельку не предоставлен');
+                } catch (walletError) {
+                    console.error('Wallet connection error:', walletError);
+
+                    // Fallback to old method if telegram-wallet SDK fails
+                    try {
+                        const result = await wa.requestWriteAccess();
+                        if (result) {
+                            const walletInfo = await wa.getWalletInfo();
+                            if (walletInfo) {
+                                setConnected(true);
+                                setWalletAddress(walletInfo.address || 'TG_Wallet');
+                                setBalance(walletInfo.balance || 1000);
+                                setStatus('Telegram кошелёк подключен (fallback)!');
+
+                                // Connect to backend
+                                try {
+                                    const response = await fetch(`${API_BASE}/api/user/connect`, {
+                                        method: 'POST',
+                                        headers: {
+                                            'Content-Type': 'application/json',
+                                        },
+                                        body: JSON.stringify({
+                                            walletAddress: walletInfo.address || 'TG_Wallet',
+                                            telegramId: initData.user.id,
+                                            username: initData.user.username,
+                                            firstName: initData.user.first_name
+                                        })
+                                    });
+
+                                    if (response.ok) {
+                                        const data = await response.json();
+                                        setBalance(data.balance);
+                                        setStatus(`Баланс: ${data.balance} TON`);
+                                    }
+                                } catch (error) {
+                                    console.error('Backend connection failed:', error);
+                                    setStatus('API сервер недоступен, но кошелёк подключен');
+                                }
+                            }
+                        } else {
+                            setStatus('Доступ к кошельку не предоставлен');
+                        }
+                    } catch (fallbackError) {
+                        console.error('Fallback wallet connection failed:', fallbackError);
+                        setStatus('Ошибка подключения к кошельку');
+                    }
                 }
             } else {
                 setStatus('Telegram Wallet недоступен в этой версии');
